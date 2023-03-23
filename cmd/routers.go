@@ -18,6 +18,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/minio/mux"
@@ -69,6 +70,14 @@ var globalHandlers = []mux.MiddlewareFunc{
 	// Add new handlers here.
 }
 
+type ApiInfo struct {
+	Path    string   `json:"path"`
+	Methods []string `json:"methods"`
+	Queries []string `json:"queries"`
+}
+
+var apiInfos []ApiInfo
+
 // configureServer handler returns final handler for the http server.
 func configureServerHandler(endpointServerPools EndpointServerPools) (http.Handler, error) {
 	// Initialize router. `SkipClean(true)` stops minio/mux from
@@ -76,9 +85,9 @@ func configureServerHandler(endpointServerPools EndpointServerPools) (http.Handl
 	router := mux.NewRouter().SkipClean(true).UseEncodedPath()
 
 	// Initialize distributed NS lock.
-	if globalIsDistErasure {
-		registerDistErasureRouters(router, endpointServerPools)
-	}
+	//if globalIsDistErasure {
+	registerDistErasureRouters(router, endpointServerPools)
+	//}
 
 	// Add Admin router, all APIs are enabled in server mode.
 	registerAdminRouter(router, true)
@@ -100,5 +109,30 @@ func configureServerHandler(endpointServerPools EndpointServerPools) (http.Handl
 
 	router.Use(globalHandlers...)
 
+	gorrillaWalkFn := func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		path, _ := route.GetPathTemplate()
+		methods, _ := route.GetMethods()
+		q, _ := route.GetQueriesTemplates()
+		apiInfos = append(apiInfos, ApiInfo{
+			Path:    path,
+			Methods: methods,
+			Queries: q,
+		})
+		return nil
+	}
+	router.Walk(gorrillaWalkFn)
+
 	return router, nil
+}
+
+func apiInfoHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := newContext(r, w, "APIInfo")
+
+	jsonBytes, err := json.Marshal(apiInfos)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	writeSuccessResponseJSON(w, jsonBytes)
 }

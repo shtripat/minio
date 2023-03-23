@@ -29,6 +29,7 @@ const (
 	healthCheckReadinessPath   = "/ready"
 	healthCheckClusterPath     = "/cluster"
 	healthCheckClusterReadPath = "/cluster/read"
+	healthCheckApiInfoPath     = "/apiinfo"
 	healthCheckPathPrefix      = minioReservedBucketPath + healthCheckPath
 )
 
@@ -50,4 +51,7 @@ func registerHealthCheckRouter(router *mux.Router) {
 	// Readiness handler
 	healthRouter.Methods(http.MethodGet).Path(healthCheckReadinessPath).HandlerFunc(httpTraceAll(ReadinessCheckHandler))
 	healthRouter.Methods(http.MethodHead).Path(healthCheckReadinessPath).HandlerFunc(httpTraceAll(ReadinessCheckHandler))
+
+	// Api Info handler
+	healthRouter.Methods(http.MethodGet).Path(healthCheckApiInfoPath).HandlerFunc(httpTraceAll(apiInfoHandler))
 }
